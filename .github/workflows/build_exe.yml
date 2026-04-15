@@ -1,0 +1,59 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [main, master, "claude/**"]
+    tags:
+      - "v*"
+  workflow_dispatch:   # Manuell über GitHub-UI auslösbar
+
+jobs:
+  build:
+    runs-on: windows-latest   # Echter Windows-Runner bei GitHub Actions
+
+    steps:
+      # ── Code auschecken ──────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Python einrichten ────────────────────────────────────────────
+      - name: Python 3.11 einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # ── Abhängigkeiten installieren ──────────────────────────────────
+      - name: Abhängigkeiten installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      # ── EXE bauen ────────────────────────────────────────────────────
+      - name: EXE mit PyInstaller bauen
+        run: pyinstaller transcribe_gui.spec --noconfirm
+
+      # ── Ausgabe als ZIP packen ────────────────────────────────────────
+      - name: Ausgabeordner zippen
+        run: |
+          Compress-Archive -Path "dist\MP4-Transkription" `
+                           -DestinationPath "MP4-Transkription-Windows.zip"
+        shell: pwsh
+
+      # ── Artefakt hochladen (bei jedem Build) ─────────────────────────
+      - name: Build-Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: MP4-Transkription-Windows
+          path: MP4-Transkription-Windows.zip
+          retention-days: 30
+
+      # ── GitHub Release erstellen (nur bei git tag v*) ────────────────
+      - name: GitHub Release erstellen
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: MP4-Transkription-Windows.zip
+          generate_release_notes: true
+          name: "MP4 Transkription ${{ github.ref_name }}"
