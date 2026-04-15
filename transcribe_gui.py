@@ -16,27 +16,29 @@ from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 
 # ---------------------------------------------------------------------------
-# ffmpeg-Pfad setzen (static-ffmpeg liefert ffmpeg ohne Systeminstallation)
+# ffmpeg-Pfad setzen
 # ---------------------------------------------------------------------------
 def _setup_ffmpeg() -> None:
-    try:
-        import io
-        import static_ffmpeg
-
-        # Wenn die EXE ohne Konsolenfenster läuft (console=False in PyInstaller),
-        # sind sys.stdout und sys.stderr None. static-ffmpeg schreibt beim
-        # Download dorthin → AttributeError. Wir leiten temporär um.
-        old_out, old_err = sys.stdout, sys.stderr
-        if sys.stdout is None:
-            sys.stdout = io.StringIO()
-        if sys.stderr is None:
-            sys.stderr = io.StringIO()
+    if getattr(sys, "frozen", False):
+        # PyInstaller-Bundle: ffmpeg.exe liegt im _MEIPASS-Verzeichnis.
+        # add_paths() NICHT aufrufen – sys.stdout ist None in windowed EXEs.
+        bundle_dir = str(Path(sys._MEIPASS))
+        os.environ["PATH"] = bundle_dir + os.pathsep + os.environ.get("PATH", "")
+    else:
+        # Entwicklungsumgebung: static-ffmpeg holt ffmpeg automatisch
         try:
-            static_ffmpeg.add_paths()
-        finally:
-            sys.stdout, sys.stderr = old_out, old_err
-    except ImportError:
-        pass  # Systemweites ffmpeg wird versucht
+            import io
+            import static_ffmpeg
+            _null = io.StringIO()
+            old_out, old_err = sys.stdout, sys.stderr
+            sys.stdout = _null
+            sys.stderr = _null
+            try:
+                static_ffmpeg.add_paths()
+            finally:
+                sys.stdout, sys.stderr = old_out, old_err
+        except Exception:
+            pass  # Systemweites ffmpeg wird versucht
 
 
 _setup_ffmpeg()
