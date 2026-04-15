@@ -20,8 +20,21 @@ from tkinter import filedialog, messagebox, scrolledtext, ttk
 # ---------------------------------------------------------------------------
 def _setup_ffmpeg() -> None:
     try:
+        import io
         import static_ffmpeg
-        static_ffmpeg.add_paths()
+
+        # Wenn die EXE ohne Konsolenfenster läuft (console=False in PyInstaller),
+        # sind sys.stdout und sys.stderr None. static-ffmpeg schreibt beim
+        # Download dorthin → AttributeError. Wir leiten temporär um.
+        old_out, old_err = sys.stdout, sys.stderr
+        if sys.stdout is None:
+            sys.stdout = io.StringIO()
+        if sys.stderr is None:
+            sys.stderr = io.StringIO()
+        try:
+            static_ffmpeg.add_paths()
+        finally:
+            sys.stdout, sys.stderr = old_out, old_err
     except ImportError:
         pass  # Systemweites ffmpeg wird versucht
 
